@@ -1,0 +1,53 @@
+HYPERTRADE — DEPLOYMENT NOTES (BANGLA)
+======================================
+
+BOT TOKEN
+---------
+এই প্রজেক্টে Telegram bot token আগে থেকেই environment variable `BOT_TOKEN`
+থেকে পড়া হয়। নিরাপত্তার জন্য token Python source code বা GitHub repository-তে
+লেখা হয়নি।
+
+Deploy করার পর Hosting Dashboard > Environment Variables-এ যোগ করুন:
+BOT_TOKEN = আপনার নতুন BotFather token
+TELEGRAM_OWNER_ID = আপনার numeric Telegram user ID (recommended)
+DATA_DIR = /data (persistent volume mount থাকলে)
+
+গুরুত্বপূর্ণ: চ্যাটে শেয়ার করা পুরোনো token revoke করে BotFather থেকে নতুন token
+নিন। পুরোনো token আর ব্যবহার করবেন না।
+
+VERCEL সম্পর্কে গুরুত্বপূর্ণ সীমাবদ্ধতা
+-------------------------------------
+এই HyperTrade অ্যাপটি একটি persistent Python service হিসেবে তৈরি। এটি:
+- Telegram getUpdates long-polling worker চালায়
+- background threads এবং asyncio event loop চালায়
+- Flask WebSocket endpoint ব্যবহার করে
+- Quotex-এর live connection ধরে রাখে
+- disk-এ candle snapshot সংরক্ষণ করে
+- ঐচ্ছিক Cloudflare tunnel process চালায়
+
+Vercel Functions serverless এবং স্বল্পস্থায়ী execution model ব্যবহার করে।
+তাই শুধু vercel.json যোগ করে এই সম্পূর্ণ অ্যাপ Vercel-এ নির্ভরযোগ্যভাবে চালানো
+সম্ভব নয়। সেখানে deploy করলে Telegram polling, live feed, WebSocket এবং
+persistent session বন্ধ/timeout হতে পারে। এই bundle-এ ভুয়া Vercel adapter
+যোগ করা হয়নি, কারণ তাতে deploy সফল দেখালেও মূল ফিচার কাজ করবে না।
+
+সঠিক deployment architecture:
+1. এই ZIP-এর Python backend Docker support-সহ Railway / Render / অন্য
+   persistent container host-এ deploy করুন।
+2. Persistent volume mount করুন এবং DATA_DIR-কে সেই mount path দিন।
+3. BOT_TOKEN ও TELEGRAM_OWNER_ID environment variables দিন।
+4. Vercel ব্যবহার করতে চাইলে আলাদা frontend/static site সেখানে host করে
+   backend-এর public HTTPS URL-এ API/WebSocket requests পাঠাতে হবে। বর্তমান
+   embedded UI-টি backend থেকে serve হয়; Vercel-only deploy নয়।
+
+LOCAL / DOCKER
+--------------
+Dockerfile ও requirements.txt আগের মতোই রাখা হয়েছে.
+Local run:
+    python HyperTrade_TokenCSRF.py
+
+Health check:
+    GET /healthz
+
+এই ফাইলটি deployment limitation স্পষ্ট করে; live Telegram/Quotex credentials
+ছাড়া external service connectivity যাচাই করা হয়নি।

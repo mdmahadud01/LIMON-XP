@@ -1,0 +1,59 @@
+HyperTrade Token/CSRF — GitHub + Railway setup
+================================================
+এই ZIP-এর সব file repository root-এ upload করুন। ZIP-এর ভিতরে outer folder নেই।
+GitHub repository নিজে আপনার account থেকে create/upload করতে হবে; এই download একটি repository-ready bundle, live GitHub repository নয়।
+
+১. GitHub-এ private repository create করুন। ZIP extract করে সব files (hidden .gitignore/.dockerignore/.env.example সহ) root-এ রাখুন এবং commit করুন। pyquotex-1.0.3.tar.gz অবশ্যই রাখবেন।
+২. railway.com → New Project → Deploy from GitHub repo → repository select করুন। Root Dockerfile ব্যবহৃত হবে।
+৩. Service Variables-এ BOT_TOKEN দিন। Recommended: TELEGRAM_OWNER_ID = আপনার numeric Telegram user ID দিন। ADMIN_PASSWORD নিজের strong password দিন। Secrets কখনও GitHub-এ commit নয়।
+৪. Service-এ Volume attach করে mount path /data দিন। DATA_DIR=/data রাখুন। শুধু variable দিলেই Volume তৈরি হয় না। Volume ছাড়া deploy/restart-এ history স্থায়ী থাকবে না।
+৫. Replicas=1 রাখুন। একই BOT_TOKEN দিয়ে অন্য bot process/webhook বন্ধ রাখুন। Railway Serverless/sleep বন্ধ রাখুন যদি সবসময় bot online চান; billing/availability plan অনুযায়ী।
+৬. Deploy করুন। Telegram bot private chat-এ /start দিন। TELEGRAM_OWNER_ID না দিলে Railway deployment logs-এর SECURE BOT SETUP লাইনের /claim CODE প্রথমে পাঠান। Owner pairing /data-তে থাকে। এরপর /start।
+৭. প্রথমে SSID/Session Token, তারপর আলাদা message-এ CSRF/XSRF-TOKEN দিন। অথবা এক message-এ JSON দিন: {"token":"YOUR_SSID","csrf":"YOUR_CSRF"}
+৮. Bot login state দেখাবে। সফল হলে /server দিলে https://....trycloudflare.com URL দেবে। /status এবং /logs আছে।
+৯. /logout shared data-feed disconnect করে, auto-trade enable বন্ধ করে, Token/CSRF RAM থেকে clear করে, tunnel বন্ধ করে। Candle/payout/signal/user files delete করে না। আবার /start দিয়ে নতুন credentials লাগবে। Restart-এর পরও credentials পুনরায় দিতে হবে।
+
+Included files
+--------------
+HyperTrade_TokenCSRF.py: আপনার complete embedded UI + existing API, modified startup/configuration.
+telegram_runtime.py: private owner-only bot, persistence, async feed lifecycle, tunnel management.
+vendor_bootstrap.py: bundled archive checksum/secure extraction + compatibility fixes.
+pyquotex-1.0.3.tar.gz: আপনার দেওয়া original archive, byte-for-byte অপরিবর্তিত।
+server.py: optional standalone tunnel helper (Railway-তে আলাদা করে চালাবেন না)।
+requirements.txt, Dockerfile, railway.json, Procfile, .python-version, .gitignore, .dockerignore, .env.example.
+verify_bundle.py: local offline tests; python verify_bundle.py।
+
+Fix details
+-----------
+• আপনার trace-এ final exception line নেই। indicators.py line 1 হলো import numpy as np; missing numpy probable cause। requirements-এ numpy explicitly আছে এবং local import test করা হয়েছে।
+• Archive-এ setup.py/pyproject.toml নেই, এটি installed-package layout। তাই pip install ./pyquotex-1.0.3.tar.gz করবেন না। bootstrap verified archive থেকে vendor/ runtime/build-এ তৈরি করে। Download ZIP root-এ vendor folder নেই।
+• Python 3.12 image; stdin/getpass prompt বাদ; Railway PORT respect; Flask healthcheck credentials ছাড়াই ready।
+• pyquotex recursive login retry bounded, websocket connection polling cooperative, close join bounded; CSRF cookie forwarding enabled; TLS certificate verification enabled।
+• Hardcoded Gmail/admin defaults সরানো হয়েছে। Original shared owner tokens public /quotex-login-এ fallback হয় না।
+• Candle/payout snapshots প্রতি ৩০ সেকেন্ডে এবং logout/graceful stop-এ atomic save। Abrupt kill হলে শেষ ৩০ সেকেন্ড unsaved থাকতে পারে। পুরোনো data read করা যায়; logout অবস্থায় live refresh হয় না।
+• Existing users/signals/settings preserved in DATA_DIR. শুধু upload করা code-এ পুরোনো runtime candle file ছিল না, তাই আগে থেকে থাকা live-server data bundle-এ নেই। Existing compatible signals_data.json/users_data.json/bot_config.json Volume-এ migrate করা যায়। এই version-এর market_snapshot.json থাকলে restore হবে।
+
+Security / limits
+-----------------
+• Telegram bot chat end-to-end encrypted নয়। Credentials messages best-effort delete হয়, কিন্তু Telegram-side erasure বা upstream invalidation নিশ্চিত নয়। শুধু trusted private chat ব্যবহার করুন; fresh/short-lived token দিন।
+• Logout local disconnect; broker-এ ইতিমধ্যে placed order cancel করে না, এবং broker session token revoke করে না। Broker/browser থেকে logout/revoke প্রয়োজন হতে পারে।
+• Bot credentials disk-এ রাখা হয় না। Telegram owner ID, market/user/signal data volume-এ থাকে। Original public UI user-password/auth design পূর্ণ security audit করা হয়নি; sensitive production use-এর আগে harden করুন।
+• Original code-এ exposed Gmail app password ছিল; সেটি Gmail থেকে revoke/rotate করুন। Repository-তে সেটি বাদ দেওয়া হয়েছে।
+• Public URL যিনি জানবেন তিনি web app access করতে পারবেন; URL-কে authentication হিসেবে ধরবেন না। Original OTP email চাইলে নিজের Gmail environment configure করুন।
+• Quick Tunnel temporary; প্রতি নতুন process/tunnel-এ URL বদলায়। Uptime SLA নেই; SSE supported নয়। Original UI-এর SSE-based ban notification Quick Tunnel-এ কাজ নাও করতে পারে; normal WebSocket UI path রাখা আছে।
+• No actual trading/order executed in tests. Quotex login, Telegram delivery, live Cloudflare tunnel and Railway deployment need your credentials/network and have not been end-to-end verified. Build import/offline smoke tests are not a live-login guarantee. Use demo account first; unofficial library may break when Quotex changes.
+• Railway deployment is not guaranteed free; keep service/volume plan and usage in mind.
+
+Local run (Python 3.12)
+-----------------------
+python -m pip install -r requirements.txt
+Install cloudflared separately; Dockerfile already includes it.
+Export BOT_TOKEN, TELEGRAM_OWNER_ID and optional DATA_DIR, then:
+python HyperTrade_TokenCSRF.py
+.env.example is documentation only, not auto-loaded.
+
+Official docs
+-------------
+https://docs.railway.com/guides/dockerfiles
+https://docs.railway.com/volumes
+https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/

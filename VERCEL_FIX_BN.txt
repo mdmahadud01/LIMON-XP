@@ -1,0 +1,35 @@
+HYPERTRADE — VERCEL ENTRYPOINT FIX
+==================================
+
+সমাধান
+------
+Vercel build error-এর কারণ ছিল server.py-তে Flask `app` নেই। আসল Flask
+application আছে HyperTrade_TokenCSRF.py ফাইলে। pyproject.toml-এ সঠিক
+entrypoint যোগ করা হয়েছে:
+
+[tool.vercel]
+entrypoint = "HyperTrade_TokenCSRF:app"
+
+এছাড়া Vercel-এর read-only app directory এড়াতে VERCEL environment-এ
+pyquotex vendor files এবং অস্থায়ী data /tmp-তে রাখা হয়।
+
+Deploy করার ধাপ
+---------------
+1. ZIP extract করে সব project file GitHub repository root-এ upload/push করুন।
+2. Vercel Project Settings > Build & Development Settings-এ Framework Preset
+   Python/Other (যেটি Vercel UI-তে পাওয়া যায়) রাখুন; Root Directory project root।
+3. Environment Variables-এ প্রয়োজনীয় secrets যোগ করুন: BOT_TOKEN,
+   TELEGRAM_OWNER_ID, ADMIN_PASSWORD।
+4. Redeploy করুন।
+
+গুরুত্বপূর্ণ সীমাবদ্ধতা
+---------------------
+এই entrypoint fix Flask app-এর import/build error সমাধান করে; কিন্তু Vercel
+serverless runtime persistent Telegram polling worker, background threads,
+Quotex live WebSocket/session, বা durable local storage চালানোর উপযুক্ত নয়।
+Vercel-এর /tmp data ephemeral। তাই UI/স্বল্পস্থায়ী HTTP endpoints deploy হলেও
+Telegram bot polling ও live Quotex engine নির্ভরযোগ্যভাবে চালাতে Railway/Render
+এর মতো persistent service ব্যবহার করুন। Vercel-এ শুধু frontend/HTTP layer রাখুন।
+
+Bot token GitHub-এ commit করবেন না। আগের প্রকাশিত token revoke করে নতুন token
+Vercel/Railway Environment Variables-এ সেট করুন।

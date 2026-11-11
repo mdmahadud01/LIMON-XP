@@ -1,0 +1,20 @@
+VERIFICATION RESULTS
+====================
+
+Inherited project test report (from supplied bundle):
+- 21 offline unit/integration tests were reported PASS in the supplied TEST_RESULTS.txt.
+- Original embedded UI and bundled pyquotex archive were reported unchanged in the supplied bundle.
+- Live Telegram, Quotex, Cloudflare, Docker and hosting deployment were not tested.
+
+This Vercel-entrypoint patch:
+- Python syntax compilation for all distributed .py files: PASS.
+- ZIP archive integrity (testzip): PASS.
+- pyproject.toml contains [tool.vercel] entrypoint = "HyperTrade_TokenCSRF:app": PASS.
+- Full offline test suite was NOT rerun in this execution environment because Flask is not installed here (ModuleNotFoundError: flask). Install requirements.txt before running verify_bundle.py.
+
+IMPORTANT:
+Vercel serverless can import and serve the Flask app, but it is not a persistent host for
+Telegram polling, background workers, Quotex live WebSocket sessions, or durable local data.
+Use Railway/Render (with persistent storage) for the live bot/trading engine.
+
+No real Telegram messages, Quotex logins, or trades were executed.

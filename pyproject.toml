@@ -1,0 +1,8 @@
+[project]
+name = "hypertrade-token-csrf"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[tool.vercel]
+# Flask application is exported from this module.
+entrypoint = "HyperTrade_TokenCSRF:app"
